@@ -17,6 +17,8 @@ class PlayTrackUseCase(UseCase):
         album_name = request_object.album_name if request_object.album_name else None
         playlist_name = request_object.playlist_name if request_object.playlist_name else None
 
+        results_tracks = list()
+
         if track_name and album_name and artist_name and playlist_name:  # Track - Album - Artist - Playlist
             results_tracks = self.music_search_service.search_track_for_album_and_for_artist_and_for_playlist(
                 track_name, album_name, artist_name, playlist_name)
@@ -41,12 +43,13 @@ class PlayTrackUseCase(UseCase):
 
         # Track
         if track_name and not (artist_name or playlist_name or album_name):
-            results_track = self.music_search_service.search_track(request_object.track_name)
-            if len(results_track):
-                first_result = results_track[0]
-                self.music_playback_service.clear_queue(device)
-                self.music_playback_service.play(device, first_result)
-            else:
-                return ResponseFailure.build_resource_error("An error happened")
+            results_tracks = self.music_search_service.search_track(request_object.track_name)
+
+        if len(results_tracks):
+            first_result = results_tracks[0]
+            self.music_playback_service.clear_queue(device)
+            self.music_playback_service.play(device, first_result)
+        else:
+            return ResponseFailure.build_resource_error("An error happened")
 
         return ResponseSuccess()
