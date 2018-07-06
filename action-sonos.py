@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 # -*-: coding utf-8 -*-
 
+import copy
 import logging
 
 from hermes_python.hermes import Hermes
@@ -49,23 +50,48 @@ HOSTNAME = CONFIGURATION['global']['hostname'] if CONFIGURATION['global']['hostn
 HERMES_HOST = "{}:1883".format(HOSTNAME)
 
 
+# Hotword callback
+def hotword_detected_callback(hermes, sessionStartedMessage):
+    devices = hermes.device_discovery_service.get_devices()
+
+    hermes.states['devices'] = {device.identifier: device for device in devices}
+
+    for device in hermes.states.get('devices').values():
+        device_at_lowered_volume = copy.deepcopy(device)
+        device_at_lowered_volume.volume = 10
+        hermes.device_transport_control_service.set_volume(device_at_lowered_volume)
+
+
+def restore_volume_for_hotword(intent_callback):
+    def restore_volume_wrapper(hermes, intentMessage):
+        intent_callback(hermes, intentMessage)  # We call the callback
+
+        # We restore the volume to what it was before the hotword was detected.
+        for device in hermes.states.get('devices').values():
+            hermes.device_transport_control_service.set_volume(device)
+
+    return restore_volume_wrapper
+
+
 # Music management functions
+@restore_volume_for_hotword
 def addSong_callback(hermes, intentMessage):
     raise NotImplementedError("addSong_callback() not implemented")
 
-
+@restore_volume_for_hotword
 def getInfos_callback(hermes, intentMessage):
     raise NotImplementedError("getInfos_callback() not implemented")
 
-
+@restore_volume_for_hotword
 def radioOn_callback(hermes, intentMessage):
     raise NotImplementedError("radioOn_callback() not implemented")
 
-
+@restore_volume_for_hotword
 def previousSong_callback(hermes, intentMessage):
     raise NotImplementedError("previousSong_callback() not implemented")
 
 
+@restore_volume_for_hotword
 def nextSong_callback(hermes, intentMessage):
     use_case = NextTrackUseCase(hermes.device_discovery_service, hermes.device_transport_control_service)
     next_track_request = NextTrackRequestAdapter.from_intent_message(intentMessage)
@@ -79,6 +105,7 @@ def nextSong_callback(hermes, intentMessage):
         hermes.publish_end_session(intentMessage.session_id, "")
 
 
+@restore_volume_for_hotword
 def resumeMusic_callback(hermes, intentMessage):  # Playback functions
     use_case = ResumeMusicUseCase(hermes.device_discovery_service, hermes.device_transport_control_service)
     resume_music_request = ResumeMusicRequestAdapter.from_intent_message(intentMessage)
@@ -92,6 +119,7 @@ def resumeMusic_callback(hermes, intentMessage):  # Playback functions
         hermes.publish_end_session(intentMessage.session_id, "")
 
 
+@restore_volume_for_hotword
 def speakerInterrupt_callback(hermes, intentMessage):
     use_case = SpeakerInterruptUseCase(hermes.device_discovery_service, hermes.device_transport_control_service)
     speaker_interrupt_request = SpeakerInterruptRequestAdapter.from_intent_message(intentMessage)
@@ -105,6 +133,7 @@ def speakerInterrupt_callback(hermes, intentMessage):
         hermes.publish_end_session(intentMessage.session_id, "")
 
 
+@restore_volume_for_hotword
 def volumeDown_callback(hermes, intentMessage):
     use_case = VolumeDownUseCase(hermes.device_discovery_service, hermes.device_transport_control_service)
     volume_down_request = VolumeDownRequestAdapter.from_intent_message(intentMessage)
@@ -117,7 +146,7 @@ def volumeDown_callback(hermes, intentMessage):
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
 
-
+@restore_volume_for_hotword
 def volumeUp_callback(hermes, intentMessage):
     use_case = VolumeUpUseCase(hermes.device_discovery_service, hermes.device_transport_control_service)
     volume_up_request = VolumeUpRequestAdapter.from_intent_message(intentMessage)
@@ -143,7 +172,7 @@ def volumeSet_callback(hermes, intentMessage):
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
 
-
+@restore_volume_for_hotword
 def mute_callback(hermes, intentMessage):
     use_case = MuteUseCase(hermes.device_discovery_service, hermes.device_transport_control_service)
     mute_request = MuteRequestAdapter.from_intent_message(intentMessage)
@@ -156,7 +185,7 @@ def mute_callback(hermes, intentMessage):
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
 
-
+@restore_volume_for_hotword
 def playTrack_callback(hermes, intentMessage):
     use_case = PlayTrackUseCase(hermes.device_discovery_service, hermes.music_search_service,
                                 hermes.music_playback_service)
@@ -171,7 +200,7 @@ def playTrack_callback(hermes, intentMessage):
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
 
-
+@restore_volume_for_hotword
 def playArtist_callback(hermes, intentMessage):
     use_case = PlayArtistUseCase(hermes.device_discovery_service, hermes.music_search_service,
                                  hermes.music_playback_service)
@@ -187,7 +216,7 @@ def playArtist_callback(hermes, intentMessage):
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
 
-
+@restore_volume_for_hotword
 def playMusic_callback(hermes, intentMessage):
     use_case = PlayMusicUseCase(hermes.device_discovery_service, hermes.music_search_service,
                                 hermes.music_playback_service)
@@ -213,11 +242,13 @@ if __name__ == "__main__":
     refresh_token = CONFIGURATION['secret']['refresh_token']
 
     with Hermes(HERMES_HOST) as h:
-        h.device_discovery_service = NodeDeviceDiscoveryService()
-        h.device_transport_control_service = NodeDeviceTransportControlService()
+        h.states = dict()
+        h.device_discovery_service = NodeDeviceDiscoveryService(CONFIGURATION)
+        h.device_transport_control_service = NodeDeviceTransportControlService(CONFIGURATION)
         h.music_search_service = SpotifyMusicSearchService(client_id, client_secret, refresh_token)
         h.music_playback_service = NodeMusicPlaybackService()
         h \
+            .subscribe_session_started(hotword_detected_callback) \
             .subscribe_intent("playMusic4", playMusic_callback) \
             .subscribe_intent("volumeUp4", volumeUp_callback) \
             .subscribe_intent("volumeDown4", volumeDown_callback) \
