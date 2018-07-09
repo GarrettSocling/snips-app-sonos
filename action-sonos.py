@@ -16,10 +16,12 @@ from snipssonos.use_cases.play.music import PlayMusicUseCase
 from snipssonos.use_cases.resume_music import ResumeMusicUseCase
 from snipssonos.use_cases.speaker_interrupt import SpeakerInterruptUseCase
 from snipssonos.use_cases.next_track import NextTrackUseCase
+from snipssonos.use_cases.previous_track import PreviousTrackUseCase
 
 from snipssonos.adapters.request_adapter import VolumeUpRequestAdapter, PlayTrackRequestAdapter, \
     PlayArtistRequestAdapter, VolumeSetRequestAdapter, VolumeDownRequestAdapter, ResumeMusicRequestAdapter, \
-    SpeakerInterruptRequestAdapter, MuteRequestAdapter, PlayMusicRequestAdapter, NextTrackRequestAdapter
+    SpeakerInterruptRequestAdapter, MuteRequestAdapter, PlayMusicRequestAdapter, NextTrackRequestAdapter,\
+    PreviousTrackRequestAdapter
 from snipssonos.services.node.device_discovery_service import NodeDeviceDiscoveryService
 from snipssonos.services.node.device_transport_control import NodeDeviceTransportControlService
 from snipssonos.services.node.music_playback_service import NodeMusicPlaybackService
@@ -32,13 +34,10 @@ from snipssonos.shared.feedback import FR_TTS_SHORT_ERROR
 # Utils functions
 CONFIG_INI = "config.ini"
 
-HOSTNAME = "localhost"
+# Configuration
+CONFIGURATION = read_configuration_file(CONFIG_INI)
 
-HERMES_HOST = "{}:1883".format(HOSTNAME)
-MOPIDY_HOST = HOSTNAME
-
-# Config & Logging
-CONFIGURATION = read_configuration_file("config.ini")
+# Logging
 LOG_LEVEL = CONFIGURATION['global']['log_level']
 if LOG_LEVEL == "info":
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -46,6 +45,10 @@ elif LOG_LEVEL == "debug":
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 else:
     logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Connection
+HOSTNAME = CONFIGURATION['global']['hostname'] if CONFIGURATION['global']['hostname'] else "localhost"
+HERMES_HOST = "{}:1883".format(HOSTNAME)
 
 
 # Music management functions
@@ -62,7 +65,16 @@ def radioOn_callback(hermes, intentMessage):
 
 
 def previousSong_callback(hermes, intentMessage):
-    raise NotImplementedError("previousSong_callback() not implemented")
+    use_case = PreviousTrackUseCase(hermes.device_discovery_service, hermes.device_transport_control_service)
+    previous_track_request = PreviousTrackRequestAdapter.from_intent_message(intentMessage)
+
+    response = use_case.execute(previous_track_request)
+    if not response:
+        logging.info(response.value)
+        hermes.publish_end_session(intentMessage.session_id, FR_TTS_SHORT_ERROR)
+    else:
+        logging.info(response)
+        hermes.publish_end_session(intentMessage.session_id, "")
 
 
 def nextSong_callback(hermes, intentMessage):
@@ -225,4 +237,5 @@ if __name__ == "__main__":
             .subscribe_intent("resumeMusic4", resumeMusic_callback) \
             .subscribe_intent("speakerInterrupt4", speakerInterrupt_callback) \
             .subscribe_intent("nextSong4", nextSong_callback) \
+            .subscribe_intent("previousSong4", previousSong_callback) \
             .loop_forever()

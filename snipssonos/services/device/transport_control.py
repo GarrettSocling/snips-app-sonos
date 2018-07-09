@@ -1,4 +1,12 @@
-class DeviceTransportControlService(object):  # TODO : Make this class abstract
+from snipssonos.services.service import ConfigurableHTTPService
+
+
+class DeviceTransportControlService(ConfigurableHTTPService):  # TODO : Make this class abstract
+    NAME = "device_transport_control"
+
+    def __init__(self, CONFIGURATION=None):
+        super(DeviceTransportControlService, self).__init__(CONFIGURATION)
+
     def pause(self, device):
         raise NotImplementedError("pause() is not implemented")
 
@@ -19,3 +27,6 @@ class DeviceTransportControlService(object):  # TODO : Make this class abstract
 
     def next_track(self, device):
         raise NotImplementedError("next_track() is not implemented")
+
+    def previous_track(self, device):
+        raise NotImplementedError("previous_track() is not implemented")
