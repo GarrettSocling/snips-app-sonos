@@ -284,7 +284,7 @@ class InjectEntitiesRequestObject(ValidRequestObject):
             if entity_name in self.VALID_ENTITY_NAMES:
                 self._entity_name = entity_name
             else:
-                invalid_request\
+                invalid_request \
                     .add_error('entity_name', 'has to be a valid entity name {}'
                                .format([entity_name for entity_name in self.VALID_ENTITY_NAMES]))
         else:
@@ -315,3 +315,15 @@ class InjectEntitiesRequestObject(ValidRequestObject):
 
 class InjectEntitiesRequestFactory(RequestObjectFactory):
     request_object_class = InjectEntitiesRequestObject
+
+
+class HotwordLowerVolumeRequestObject(ValidRequestObject):
+    @classmethod
+    def from_dict(cls, a_dictionary):
+        return cls()
+
+
+class HotwordRestoreVolumeRequestObject(ValidRequestObject):
+    @classmethod
+    def from_dict(cls, a_dictionary):
+        return cls()
