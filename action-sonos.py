@@ -1,12 +1,13 @@
 #!/usr/bin/env python2
 # -*-: coding utf-8 -*-
 
-import copy
 import logging
 
 from hermes_python.hermes import Hermes
 
 from snipssonos.helpers.snips_config_parser import read_configuration_file
+from snipssonos.use_cases.hotword.lower_volume import HotwordLowerVolumeUseCase
+from snipssonos.use_cases.hotword.restore_volume import HotwordRestoreVolumeUseCase
 from snipssonos.use_cases.volume.up import VolumeUpUseCase
 from snipssonos.use_cases.volume.down import VolumeDownUseCase
 from snipssonos.use_cases.volume.set import VolumeSetUseCase
@@ -18,6 +19,7 @@ from snipssonos.use_cases.resume_music import ResumeMusicUseCase
 from snipssonos.use_cases.speaker_interrupt import SpeakerInterruptUseCase
 from snipssonos.use_cases.next_track import NextTrackUseCase
 
+from snipssonos.use_cases.request_objects import HotwordLowerVolumeRequestObject, HotwordRestoreVolumeRequestObject
 from snipssonos.adapters.request_adapter import VolumeUpRequestAdapter, PlayTrackRequestAdapter, \
     PlayArtistRequestAdapter, VolumeSetRequestAdapter, VolumeDownRequestAdapter, ResumeMusicRequestAdapter, \
     SpeakerInterruptRequestAdapter, MuteRequestAdapter, PlayMusicRequestAdapter, NextTrackRequestAdapter
@@ -25,6 +27,7 @@ from snipssonos.services.node.device_discovery_service import NodeDeviceDiscover
 from snipssonos.services.node.device_transport_control import NodeDeviceTransportControlService
 from snipssonos.services.node.music_playback_service import NodeMusicPlaybackService
 from snipssonos.services.spotify.music_search_service import SpotifyMusicSearchService
+from snipssonos.services.hermes.state_persistence import HermesStatePersistence
 
 from snipssonos.adapters.tts_sentence_adapter import TTSSentenceGenerator
 
@@ -52,14 +55,14 @@ HERMES_HOST = "{}:1883".format(HOSTNAME)
 
 # Hotword callback
 def hotword_detected_callback(hermes, sessionStartedMessage):
-    devices = hermes.device_discovery_service.get_devices()
+    use_case = HotwordLowerVolumeUseCase(hermes.device_discovery_service, hermes.device_transport_control_service,
+                                         hermes.state_persistence_service)
+    request_object = HotwordLowerVolumeRequestObject()
 
-    hermes.states['devices'] = {device.identifier: device for device in devices}
-
-    for device in hermes.states.get('devices').values():
-        device_at_lowered_volume = copy.deepcopy(device)
-        device_at_lowered_volume.volume = 10
-        hermes.device_transport_control_service.set_volume(device_at_lowered_volume)
+    response = use_case.execute(request_object)
+    if not response:
+        logging.error("An error occured when trying to lower the volume when the wakeword was detected")
+        hermes.publish_end_session(sessionStartedMessage.session_id, "")
 
 
 def restore_volume_for_hotword(intent_callback):
@@ -67,8 +70,14 @@ def restore_volume_for_hotword(intent_callback):
         intent_callback(hermes, intentMessage)  # We call the callback
 
         # We restore the volume to what it was before the hotword was detected.
-        for device in hermes.states.get('devices').values():
-            hermes.device_transport_control_service.set_volume(device)
+        use_case = HotwordRestoreVolumeUseCase(hermes.device_discovery_service, hermes.device_transport_control_service,
+                                               hermes.state_persistence_service)
+        request_object = HotwordRestoreVolumeRequestObject()
+        response = use_case.execute(request_object)
+
+        if not response:
+            logging.error("Error when recovering the volume")
+            logging.error(response.message)
 
     return restore_volume_wrapper
 
@@ -78,13 +87,16 @@ def restore_volume_for_hotword(intent_callback):
 def addSong_callback(hermes, intentMessage):
     raise NotImplementedError("addSong_callback() not implemented")
 
+
 @restore_volume_for_hotword
 def getInfos_callback(hermes, intentMessage):
     raise NotImplementedError("getInfos_callback() not implemented")
 
+
 @restore_volume_for_hotword
 def radioOn_callback(hermes, intentMessage):
     raise NotImplementedError("radioOn_callback() not implemented")
+
 
 @restore_volume_for_hotword
 def previousSong_callback(hermes, intentMessage):
@@ -146,6 +158,7 @@ def volumeDown_callback(hermes, intentMessage):
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
 
+
 @restore_volume_for_hotword
 def volumeUp_callback(hermes, intentMessage):
     use_case = VolumeUpUseCase(hermes.device_discovery_service, hermes.device_transport_control_service)
@@ -172,6 +185,7 @@ def volumeSet_callback(hermes, intentMessage):
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
 
+
 @restore_volume_for_hotword
 def mute_callback(hermes, intentMessage):
     use_case = MuteUseCase(hermes.device_discovery_service, hermes.device_transport_control_service)
@@ -184,6 +198,7 @@ def mute_callback(hermes, intentMessage):
     else:
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
+
 
 @restore_volume_for_hotword
 def playTrack_callback(hermes, intentMessage):
@@ -200,6 +215,7 @@ def playTrack_callback(hermes, intentMessage):
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
 
+
 @restore_volume_for_hotword
 def playArtist_callback(hermes, intentMessage):
     use_case = PlayArtistUseCase(hermes.device_discovery_service, hermes.music_search_service,
@@ -215,6 +231,7 @@ def playArtist_callback(hermes, intentMessage):
     else:
         logging.info(response)
         hermes.publish_end_session(intentMessage.session_id, "")
+
 
 @restore_volume_for_hotword
 def playMusic_callback(hermes, intentMessage):
@@ -242,7 +259,7 @@ if __name__ == "__main__":
     refresh_token = CONFIGURATION['secret']['refresh_token']
 
     with Hermes(HERMES_HOST) as h:
-        h.states = dict()
+        h.state_persistence_service = HermesStatePersistence(dict())
         h.device_discovery_service = NodeDeviceDiscoveryService(CONFIGURATION)
         h.device_transport_control_service = NodeDeviceTransportControlService(CONFIGURATION)
         h.music_search_service = SpotifyMusicSearchService(client_id, client_secret, refresh_token)
