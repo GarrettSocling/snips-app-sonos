@@ -1,6 +1,43 @@
 #coding: utf-8
-EMPTY_TRACKS ="""{
+
+EMPTY_TRACKS = """{
   "tracks" : {
+    "href" : "https://api.spotify.com/v1/search?query=Bashibookzeiezjfoizejfnzeiufhbieuhbfieruhg&type=track&offset=0&limit=20",
+    "items" : [ ],
+    "limit" : 20,
+    "next" : null,
+    "offset" : 0,
+    "previous" : null,
+    "total" : 0
+  }
+}"""
+
+EMPTY_ALBUMS = """{
+  "albums" : {
+    "href" : "https://api.spotify.com/v1/search?query=Bashibookzeiezjfoizejfnzeiufhbieuhbfieruhg&type=track&offset=0&limit=20",
+    "items" : [ ],
+    "limit" : 20,
+    "next" : null,
+    "offset" : 0,
+    "previous" : null,
+    "total" : 0
+  }
+}"""
+
+EMPTY_PLAYLISTS = """{
+  "playlists" : {
+    "href" : "https://api.spotify.com/v1/search?query=Bashibookzeiezjfoizejfnzeiufhbieuhbfieruhg&type=track&offset=0&limit=20",
+    "items" : [ ],
+    "limit" : 20,
+    "next" : null,
+    "offset" : 0,
+    "previous" : null,
+    "total" : 0
+  }
+}"""
+
+EMPTY_ARTISTS = """{
+  "artists" : {
     "href" : "https://api.spotify.com/v1/search?query=Bashibookzeiezjfoizejfnzeiufhbieuhbfieruhg&type=track&offset=0&limit=20",
     "items" : [ ],
     "limit" : 20,

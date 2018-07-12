@@ -34,7 +34,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(album_search_query)
         albums = self._parse_album_results(raw_response)
-        return albums
+        return self._handle_fallback(album_name, self.search_album, albums)
 
     def search_album_for_artist(self, album_name, artist_name):
         album_search_query = SpotifyAPISearchQueryBuilder() \
@@ -45,7 +45,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(album_search_query)
         albums = self._parse_album_results(raw_response)
-        return albums
+        return self._handle_fallback(album_name, self.search_album, albums)
 
     def search_album_for_artist_and_for_playlist(self, album_name, artist_name, playlist_name):
         album_search_query = SpotifyAPISearchQueryBuilder() \
@@ -57,7 +57,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(album_search_query)
         albums = self._parse_album_results(raw_response)
-        return albums
+        return self._handle_fallback(album_name, self.search_album, albums)
 
     def search_track(self, track_name):
         song_search_query = SpotifyAPISearchQueryBuilder() \
@@ -78,7 +78,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(track_by_artist_search_query)
         tracks = self._parse_track_results(raw_response)
-        return tracks
+        return self._handle_fallback(track_name, self.search_track, tracks)
 
     def search_track_for_album(self, track_name, album_name):
         track_by_album_search_query = SpotifyAPISearchQueryBuilder() \
@@ -88,7 +88,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(track_by_album_search_query)
         tracks = self._parse_track_results(raw_response)
-        return tracks
+        return self._handle_fallback(track_name, self.search_track, tracks)
 
     def search_track_for_playlist(self, track_name, playlist_name):
         track_by_playlist_search_query = SpotifyAPISearchQueryBuilder() \
@@ -98,7 +98,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(track_by_playlist_search_query)
         tracks = self._parse_track_results(raw_response)
-        return tracks
+        return self._handle_fallback(track_name, self.search_track, tracks)
 
     def search_track_for_album_and_for_artist(self, track_name, album_name, artist_name):
         track_by_album_and_artist_search_query = SpotifyAPISearchQueryBuilder() \
@@ -110,7 +110,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(track_by_album_and_artist_search_query)
         tracks = self._parse_track_results(raw_response)
-        return tracks
+        return self._handle_fallback(track_name, self.search_track, tracks)
 
     def search_track_for_album_and_for_playlist(self, track_name, album_name, playlist_name):
         track_by_album_and_playlist_search_query = SpotifyAPISearchQueryBuilder() \
@@ -122,7 +122,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(track_by_album_and_playlist_search_query)
         tracks = self._parse_track_results(raw_response)
-        return tracks
+        return self._handle_fallback(track_name, self.search_track, tracks)
 
     def search_track_for_artist_and_for_playlist(self, track_name, artist_name, playlist_name):
         track_by_artist_and_playlist_search_query = SpotifyAPISearchQueryBuilder() \
@@ -134,7 +134,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(track_by_artist_and_playlist_search_query)
         tracks = self._parse_track_results(raw_response)
-        return tracks
+        return self._handle_fallback(track_name, self.search_track, tracks)
 
     def search_track_for_album_and_for_artist_and_for_playlist(self, track_name, album_name, artist_name,
                                                                playlist_name):
@@ -148,7 +148,7 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         raw_response = self.client.execute_query(track_by_album_and_artist_and_playlist_search_query)
         tracks = self._parse_track_results(raw_response)
-        return tracks
+        return self._handle_fallback(track_name, self.search_track, tracks)
 
     def search_artist(self, artist_name):
         artist_search_query = SpotifyAPISearchQueryBuilder() \
@@ -170,7 +170,7 @@ class SpotifyMusicSearchService(MusicSearchService):
         raw_response = self.client.execute_query(track_by_artist_in_playlist_search_query)
         artists = self._parse_artists_results(raw_response)
 
-        return artists
+        return self._handle_fallback(artist_name, self.search_artist, artists)
 
     def search_playlist(self, playlist_name):
         playlist_search_query = SpotifyAPISearchQueryBuilder() \
@@ -211,6 +211,12 @@ class SpotifyMusicSearchService(MusicSearchService):
 
         artists = [Album(item['uri'], item['name']) for item in albums['items']]
         return artists
+
+    def _handle_fallback(self, music_item_name, search_function, parsed_results):
+        if not parsed_results:
+            return search_function(music_item_name)
+        return parsed_results
+
 
 
 
